@@ -1,0 +1,64 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "siggate"
+version = "0.1.0"
+description = "The vendor-neutral significance gate for AI evals. Most eval tools show a number moving; siggate tells you — in CI — whether the move is statistically real or within noise."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [{ name = "yongzhe2160cs" }]
+keywords = [
+    "evaluation", "llm", "benchmark", "ci", "github-action", "significance",
+    "statistics", "confidence-interval", "power-analysis", "multiple-testing",
+    "inspect-ai", "lm-evaluation-harness", "eval-gate", "regression-gate",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Testing",
+    "Typing :: Typed",
+]
+# The statistics engine is the author's deltagate library (the eval-reliability
+# toolkit). siggate is the productization layer; it does NOT reimplement the
+# stats. Installed from the public repo until deltagate is on PyPI.
+dependencies = [
+    "deltagate @ git+https://github.com/yongzhe2160cs/eval-reliability.git",
+    "tomli>=2.0; python_version < '3.11'",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.4", "ruff>=0.5"]
+
+[project.scripts]
+siggate = "siggate.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/yongzhe2160cs/significance-gate"
+Source = "https://github.com/yongzhe2160cs/significance-gate"
+Issues = "https://github.com/yongzhe2160cs/significance-gate/issues"
+"Stats engine (deltagate)" = "https://github.com/yongzhe2160cs/eval-reliability"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/siggate"]
+
+[tool.hatch.metadata]
+allow-direct-references = true  # permit the git dependency on deltagate
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
