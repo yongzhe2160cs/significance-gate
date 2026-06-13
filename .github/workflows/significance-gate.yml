@@ -1,0 +1,43 @@
+# Sample workflow: gate every PR's eval comparison with siggate.
+#
+# Drop this in your own repo at .github/workflows/significance-gate.yml. It
+# assumes your CI has produced two eval outputs — a baseline and a candidate —
+# on the same samples. Replace the "produce eval outputs" step with however you
+# run your evals (lm-eval --log_samples, Inspect, or any per-sample scores).
+
+name: Significance Gate
+
+on:
+  pull_request:
+
+# Needed so the action can post/update the PR comment with the default token.
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  significance-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # --- Replace this with your real eval run. -------------------------------
+      # It must leave two per-sample score files (or two directories for a suite)
+      # on disk. Here we just use the bundled demo data as a stand-in.
+      - name: Produce eval outputs (demo stand-in)
+        run: |
+          git clone --depth 1 https://github.com/yongzhe2160cs/significance-gate.git _sg
+          cp -r _sg/examples/data ./eval-data
+      # -------------------------------------------------------------------------
+
+      - name: Significance gate
+        uses: yongzhe2160cs/significance-gate@main
+        with:
+          baseline: eval-data/underpowered/samples_baseline.jsonl
+          candidate: eval-data/underpowered/samples_candidate.jsonl
+          adapter: lm-eval
+          metric: acc
+          # Fail the build on a claimed-but-unsupported improvement or a real regression.
+          fail-on: unsupported-improvement,regression,invalid
+          comment: "true"
+          github-token: ${{ secrets.GITHUB_TOKEN }}

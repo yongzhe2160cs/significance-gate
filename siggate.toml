@@ -1,0 +1,29 @@
+# siggate configuration — the significance gate for AI evals.
+# Every field is optional; shown here with its default. Drop this at your repo
+# root (or point `siggate compare --config path/to/siggate.toml` at it).
+
+[gate]
+alpha = 0.05        # significance level for the verdict
+power = 0.80        # target power for the "N more samples needed" math
+mei   = 0.05        # minimum effect of interest, in the metric's own units.
+                    # Splits NOISE (eval was powered to find a `mei`-sized effect,
+                    # found none) from UNDERPOWERED (it couldn't resolve one).
+                    # 0.05 = 5 accuracy points; set to your meaningful delta.
+
+# What makes the CI check fail (exit nonzero). Any matching rule blocks the build.
+# Rules: unsupported-improvement | regression | not-real | noise | underpowered | invalid
+fail_on = ["unsupported-improvement", "regression", "invalid"]
+
+[metric]
+name    = "acc"     # per-sample metric key (lm-eval) or scorer name (Inspect)
+adapter = "auto"    # auto | lm-eval | inspect | raw  (auto = detect by extension)
+
+[suite]
+correction = "holm" # multiplicity correction across tasks:
+                    #   holm = control family-wise error (stricter)
+                    #   bh   = control false-discovery-rate (more discoveries)
+
+[selection]
+n_trials = 1        # how many variants (prompts/checkpoints/configs) were tried
+                    # before reporting this run. > 1 applies a selection-bias
+                    # (deflated) correction so best-of-N noise can't pose as a win.

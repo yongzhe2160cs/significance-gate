@@ -1,0 +1,136 @@
+name: "Significance Gate"
+description: >-
+  Gate eval comparisons in CI: report whether a model improvement is
+  statistically REAL, within NOISE, or UNDERPOWERED — and post the verdict
+  as a PR comment. Powered by deltagate.
+branding:
+  icon: "bar-chart-2"
+  color: "green"
+
+inputs:
+  baseline:
+    description: "Baseline eval output: a file, or a directory of per-task files (suite mode)."
+    required: true
+  candidate:
+    description: "Candidate eval output: a file, or a directory (paired with baseline by filename)."
+    required: true
+  adapter:
+    description: "auto | lm-eval | inspect | raw (auto = detect by file extension)."
+    required: false
+    default: "auto"
+  metric:
+    description: "Per-sample metric key (lm-eval, e.g. acc) or scorer name (Inspect)."
+    required: false
+    default: "acc"
+  alpha:
+    description: "Significance level."
+    required: false
+    default: "0.05"
+  power:
+    description: "Target power for the minimum-samples math."
+    required: false
+    default: "0.80"
+  mei:
+    description: "Minimum effect of interest (metric units); splits NOISE from UNDERPOWERED."
+    required: false
+    default: "0.05"
+  fail-on:
+    description: >-
+      Comma-separated gate rules that fail the build, or 'none' to report only.
+      Rules: unsupported-improvement, regression, not-real, noise, underpowered, invalid.
+    required: false
+    default: "unsupported-improvement,regression,invalid"
+  config:
+    description: "Optional path to a siggate.toml (CLI flags above override its values)."
+    required: false
+    default: ""
+  comment:
+    description: "Post (and update) the verdict as a PR comment. Requires github-token."
+    required: false
+    default: "true"
+  github-token:
+    description: "Token used to post the PR comment. Pass ${{ secrets.GITHUB_TOKEN }}."
+    required: false
+    default: ""
+  siggate-version:
+    description: "Git ref of significance-gate to install (branch, tag, or SHA)."
+    required: false
+    default: "main"
+
+outputs:
+  verdict:
+    description: "The gate label: REAL | NOISE | UNDERPOWERED | INVALID (or 'suite')."
+    value: ${{ steps.gate.outputs.verdict }}
+  passed:
+    description: "'true' if the gate passed (exit 0), 'false' otherwise."
+    value: ${{ steps.gate.outputs.passed }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+
+    - name: Install siggate
+      shell: bash
+      run: |
+        python -m pip install --upgrade pip
+        pip install "git+https://github.com/yongzhe2160cs/significance-gate.git@${{ inputs.siggate-version }}"
+
+    - name: Run significance gate
+      id: gate
+      shell: bash
+      run: |
+        set +e
+        args=(compare "${{ inputs.baseline }}" "${{ inputs.candidate }}"
+              --adapter "${{ inputs.adapter }}"
+              --metric "${{ inputs.metric }}"
+              --alpha "${{ inputs.alpha }}"
+              --power "${{ inputs.power }}"
+              --mei "${{ inputs.mei }}"
+              --fail-on "${{ inputs.fail-on }}"
+              --format text
+              --output siggate-comment.md)
+        if [ -n "${{ inputs.config }}" ]; then args+=(--config "${{ inputs.config }}"); fi
+        siggate "${args[@]}" | tee siggate-output.txt
+        code=${PIPESTATUS[0]}
+        echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+        if [ "$code" = "0" ]; then echo "passed=true" >> "$GITHUB_OUTPUT"; else echo "passed=false" >> "$GITHUB_OUTPUT"; fi
+        # Surface the label for the `verdict` output (best-effort scrape).
+        label=$(grep -oE 'REAL|NOISE|UNDERPOWERED|INVALID' siggate-output.txt | head -n1)
+        echo "verdict=${label:-suite}" >> "$GITHUB_OUTPUT"
+        # Render the Markdown comment to the step summary regardless of gate result.
+        cat siggate-comment.md >> "$GITHUB_STEP_SUMMARY"
+        exit 0
+
+    - name: Post / update PR comment
+      if: ${{ inputs.comment == 'true' && github.event_name == 'pull_request' && inputs.github-token != '' }}
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        REPO: ${{ github.repository }}
+      run: |
+        # Upsert: find a previous siggate comment by its hidden marker and edit it,
+        # otherwise create a new one. Standard GITHUB_TOKEN pattern, nothing hardcoded.
+        marker="<!-- siggate:significance-gate -->"
+        existing=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" --paginate \
+          --jq "[.[] | select(.body | contains(\"$marker\"))][0].id // empty")
+        if [ -n "$existing" ]; then
+          gh api -X PATCH "repos/$REPO/issues/comments/$existing" -F body=@siggate-comment.md >/dev/null
+          echo "updated existing siggate comment #$existing"
+        else
+          gh api -X POST "repos/$REPO/issues/$PR_NUMBER/comments" -F body=@siggate-comment.md >/dev/null
+          echo "created siggate comment"
+        fi
+
+    - name: Enforce gate
+      shell: bash
+      run: |
+        if [ "${{ steps.gate.outputs.passed }}" != "true" ]; then
+          echo "::error::Significance gate failed (${{ steps.gate.outputs.verdict }}). See the PR comment / step summary."
+          exit 1
+        fi
+        echo "Significance gate passed (${{ steps.gate.outputs.verdict }})."
