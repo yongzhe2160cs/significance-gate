@@ -28,9 +28,9 @@ classifiers = [
 ]
 # The statistics engine is the author's deltagate library (the eval-reliability
 # toolkit). siggate is the productization layer; it does NOT reimplement the
-# stats. Installed from the public repo until deltagate is on PyPI.
+# stats. Published on PyPI: https://pypi.org/project/deltagate/
 dependencies = [
-    "deltagate @ git+https://github.com/yongzhe2160cs/eval-reliability.git",
+    "deltagate>=0.1.0",
     "tomli>=2.0; python_version < '3.11'",
 ]
 
@@ -48,9 +48,6 @@ Issues = "https://github.com/yongzhe2160cs/significance-gate/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/siggate"]
-
-[tool.hatch.metadata]
-allow-direct-references = true  # permit the git dependency on deltagate
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
