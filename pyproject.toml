@@ -37,6 +37,14 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest>=7.4", "ruff>=0.5"]
 
+# Dev-only: resolve deltagate from the sibling source checkout so the test env
+# tracks unreleased stats fixes (e.g. the multi-epoch epoch-aggregation fix).
+# This block is NOT part of the published wheel metadata; end users still get
+# deltagate from PyPI per the `dependencies` constraint above. Bump the
+# `deltagate>=` floor to the release that contains the fix before publishing.
+[tool.uv.sources]
+deltagate = { path = "../eval-reliability", editable = true }
+
 [project.scripts]
 siggate = "siggate.cli:main"
 

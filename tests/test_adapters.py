@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import zipfile
 
 import pytest
 
@@ -14,6 +15,7 @@ from siggate.adapters import (
     pair_suite,
     register_adapter,
 )
+from siggate.gate import compare
 
 
 def _write_lmeval(path, scores, metric="acc"):
@@ -77,6 +79,45 @@ def test_register_custom_adapter(tmp_path):
         assert load_scores("ignored", adapter="const") == {0: 1.0, 1: 1.0}
     finally:
         ADAPTERS.pop("const", None)
+
+
+def _write_eval(path, samples):
+    """Write a minimal Inspect `.eval` zip from a list of sample dicts."""
+    with zipfile.ZipFile(path, "w") as zf:
+        zf.writestr("header.json", json.dumps({"eval": {"task": "demo"}}))
+        for i, sample in enumerate(samples):
+            zf.writestr(f"samples/{i}.json", json.dumps(sample))
+
+
+def test_multi_epoch_inspect_log_aggregates_to_one_per_sample(tmp_path):
+    # A multi-epoch Inspect log must collapse epochs to one per-sample score
+    # BEFORE pairing, so n is the true sample count -- not epochs x samples.
+    # Regression for the multi-epoch paired-SE leak (ipfloater point 1) flowing
+    # through siggate's load_scores + compare path.
+    samples = [
+        {"id": "s1", "epoch": 1, "scores": {"acc": {"value": "C"}}},
+        {"id": "s1", "epoch": 2, "scores": {"acc": {"value": "I"}}},  # s1 -> 0.5
+        {"id": "s2", "epoch": 1, "scores": {"acc": {"value": "C"}}},
+        {"id": "s2", "epoch": 2, "scores": {"acc": {"value": "C"}}},  # s2 -> 1.0
+        {"id": "s3", "epoch": 1, "scores": {"acc": {"value": "I"}}},
+        {"id": "s3", "epoch": 2, "scores": {"acc": {"value": "I"}}},  # s3 -> 0.0
+    ]
+    p = tmp_path / "run.eval"
+    _write_eval(p, samples)
+
+    scores = load_scores(p, adapter="inspect", metric="acc")
+    assert scores == {"s1": 0.5, "s2": 1.0, "s3": 0.0}
+    assert all(not isinstance(k, tuple) for k in scores)  # no (id, epoch) pseudo-samples
+
+    # And the gate sees n == 3 (true samples), not 6 (epochs x samples).
+    other = tmp_path / "run_b.eval"
+    _write_eval(other, [{**s, "scores": {"acc": {"value": "C"}}} for s in samples])
+    verdict = compare(
+        load_scores(other, adapter="inspect", metric="acc"),
+        scores,
+        name="demo",
+    )
+    assert verdict.n == 3
 
 
 def test_pair_suite(tmp_path):
