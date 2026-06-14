@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "siggate"
-version = "0.1.0"
+version = "0.1.1"
 description = "The vendor-neutral significance gate for AI evals. Most eval tools show a number moving; siggate tells you — in CI — whether the move is statistically real or within noise."
 readme = "README.md"
 license = { text = "MIT" }
@@ -30,20 +30,13 @@ classifiers = [
 # toolkit). siggate is the productization layer; it does NOT reimplement the
 # stats. Published on PyPI: https://pypi.org/project/deltagate/
 dependencies = [
-    "deltagate>=0.1.0",
+    # 0.1.1 carries the multi-epoch epoch-aggregation fix siggate's gate relies on.
+    "deltagate>=0.1.1",
     "tomli>=2.0; python_version < '3.11'",
 ]
 
 [project.optional-dependencies]
 dev = ["pytest>=7.4", "ruff>=0.5"]
-
-# Dev-only: resolve deltagate from the sibling source checkout so the test env
-# tracks unreleased stats fixes (e.g. the multi-epoch epoch-aggregation fix).
-# This block is NOT part of the published wheel metadata; end users still get
-# deltagate from PyPI per the `dependencies` constraint above. Bump the
-# `deltagate>=` floor to the release that contains the fix before publishing.
-[tool.uv.sources]
-deltagate = { path = "../eval-reliability", editable = true }
 
 [project.scripts]
 siggate = "siggate.cli:main"

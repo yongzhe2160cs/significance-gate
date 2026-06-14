@@ -17,20 +17,16 @@ wheels = [
 
 [[package]]
 name = "deltagate"
-version = "0.1.0"
-source = { editable = "../eval-reliability" }
+version = "0.1.1"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
 ]
-
-[package.metadata]
-requires-dist = [
-    { name = "numpy", specifier = ">=1.23" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.4" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.5" },
+sdist = { url = "https://files.pythonhosted.org/packages/28/d4/68a36286ddd6ed7fd55df7aa40846c4ed40a33cab793eeb536547cfcc166/deltagate-0.1.1.tar.gz", hash = "sha256:e7b9a2e63ce9d041779fbea7dacba8d819f2a38127c86baf42d9875577dd42be", size = 40289, upload-time = "2026-06-14T21:32:02.653Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0e/fe/94a0ea037900312efbfbc89998310f651b0d9da4287cb15d2c5fdd12e767/deltagate-0.1.1-py3-none-any.whl", hash = "sha256:9fb422b74abddbb24207eff40c79ba530d9dd05b44558aacc2ea6859c6f140c7", size = 35511, upload-time = "2026-06-14T21:32:01.515Z" },
 ]
-provides-extras = ["dev"]
 
 [[package]]
 name = "exceptiongroup"
@@ -272,7 +268,7 @@ wheels = [
 
 [[package]]
 name = "siggate"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "." }
 dependencies = [
     { name = "deltagate" },
@@ -287,7 +283,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "deltagate", editable = "../eval-reliability" },
+    { name = "deltagate", specifier = ">=0.1.1" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.4" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.5" },
     { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.0" },
